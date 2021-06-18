@@ -1,32 +1,64 @@
-﻿# Masuit.Tools
-包含一些常用的操作类，大都是静态类，加密解密，反射操作，硬件信息，字符串扩展方法，日期时间扩展操作，大文件拷贝，图像裁剪，验证码等常用封装。
-
+# Masuit.Tools
+[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE) [![nuget](https://img.shields.io/nuget/v/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) [![nuget](https://img.shields.io/nuget/dt/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) <a href="https://gitee.com/masuit/Masuit.Tools"><img src="https://gitee.com/static/images/logo-black.svg" height="24"></a> <a href="https://github.com/ldqk/Masuit.Tools"><img src="https://p.pstatp.com/origin/13841000102b8e2ba20b2" height="24"></a>  
+包含一些常用的操作类，大都是静态类，加密解密，反射操作，动态编译，权重随机筛选算法，简繁转换，分布式短id，表达式树，linq扩展，文件压缩，多线程下载和FTP客户端，硬件信息，字符串扩展方法，日期时间扩展操作，中国农历，大文件拷贝，图像裁剪，验证码，断点续传，实体映射、集合扩展、Excel导出等常用封装。**诸多功能集一身，代码量不到1MB！**  
 [官网教程](https://masuit.com/55)  
-项目开发模式：日常代码积累+网络搜集  
-本项目已得到[JetBrains](https://www.jetbrains.com/shop/eform/opensource)的支持！  
-<img src="https://www.jetbrains.com/shop/static/images/jetbrains-logo-inv.svg" height="100">  
-[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)  
-请注意：一旦使用本开源项目以及引用了本项目或包含本项目代码的公司因为违反劳动法（包括但不限定非法裁员、超时用工、雇佣童工等）在任何法律诉讼中败诉的，项目作者有权利追讨本项目的使用费，或者直接不允许使用任何包含本项目的源代码！任何性质的`外包公司`或`996公司`需要使用本类库，请联系作者进行商业授权！其他企业或个人可随意使用不受限。
 
+项目开发模式：日常代码积累+网络搜集  
 ⭐⭐⭐喜欢这个项目的话就Star、Fork、Follow素质三连关♂注一下吧⭐⭐⭐  
+关于本项目，如果你有任何不懂的地方或使用过程中遇到任何问题，可以直接提issue或私信联系我，我会为你提供**完全免费**的技术指导，当然，如果你觉得不好意思接受免费的指导，想适当打赏我也是不会拒绝的！🤣🤣🤣
+## 本项目已得到[JetBrains](https://www.jetbrains.com/shop/eform/opensource)的支持！  
+<img src="https://www.jetbrains.com/shop/static/images/jetbrains-logo-inv.svg" height="100">     
+
+## Star趋势
+<img src="https://starchart.cc/ldqk/Masuit.Tools.svg">    
+
+## 请注意：
+一旦使用本开源项目以及引用了本项目或包含本项目代码的公司因为违反劳动法（包括但不限定非法裁员、超时用工、雇佣童工等）在任何法律诉讼中败诉的，项目作者有权利追讨本项目的使用费，或者直接不允许使用任何包含本项目的源代码！任何性质的`外包公司`或`996公司`需要使用本类库，请联系作者进行商业授权！其他企业或个人可随意使用不受限。
+
+## 建议开发环境
+操作系统：Windows 10 1903及以上版本  
+开发工具：VisualStudio2019 v16.5及以上版本  
+SDK：.Net Core 3.1.0及以上版本
+
 ## 安装程序包
-.NET Framework ≥4.6.1
+### .NET Framework ≥ 4.6.1
 ```shell
 PM> Install-Package Masuit.Tools.Net
 ```
-.NET Core 3.x
+### .NET Standard ≥ 2.1
+```shell
+PM> Install-Package Masuit.Tools.Abstraction
+```
+### .NET Core ≥ 2.1
 ```shell
 PM> Install-Package Masuit.Tools.Core
 ```
-## 特色功能示例代码
-### 1.检验字符串是否是Email、手机号、URL、IP地址、身份证号
+### .NET Framework 4.5特供版  
+请注意：`这是.NET Framework 4.5的专用版本，相比4.6.1及.NET Core的版本，阉割了Redis、HTML、文件压缩、ASP.NET扩展、硬件监测、Session扩展等一些功能。`**如果你的项目版本高于4.5，请务必使用上述版本的包，以享受完整的功能体验！**
+```shell
+PM> Install-Package Masuit.Tools.Net45
+```
+## 为工具库注册配置
+工具库需要用到外部配置节，.NET Framework项目配置在web.config/app.config的AppSettings配置节中，.NET Core项目配置在appsettings.json中：  
+1. EmailDomainWhiteList，邮箱校验需要用到的白名单域名，英文逗号分隔，每个元素支持正则表达式，若未配置，则不启用邮箱校验白名单，示例: `"^\\w{1,5}@qq.com,^\\w{1,5}@163.com,^\\w{1,5}@gmail.com,^\\w{1,5}@outlook.com"`
+2. EmailDomainBlockList，邮箱校验需要用到的黑名单域名，英文逗号分隔，每个元素支持正则表达式，且黑名单优先级高于白名单，若未配置，则不启用邮箱校验黑白名单
 ```csharp
-bool isEmail="3444764617@qq.com".MatchEmail();
+public Startup(IConfiguration configuration)
+{
+    configuration.AddToMasuitTools(); // 若未调用，则默认自动尝试加载appsettings.json
+}
+```
+## 特色功能示例代码
+### 1.检验字符串是否是Email、手机号、URL、IP地址、身份证号等
+```csharp
+bool isEmail="3444764617@qq.com".MatchEmail(); // 可在appsetting.json中添加EmailDomainWhiteList和EmailDomainBlockList配置邮箱域名黑白名单，逗号分隔，如"EmailDomainBlockList": "^\\w{1,5}@qq.com,^\\w{1,5}@163.com,^\\w{1,5}@gmail.com,^\\w{1,5}@outlook.com",
 bool isInetAddress = "114.114.114.114".MatchInetAddress();
-bool isUrl = "http://masuit.com".MatchUrl();
+bool isUrl = "http://ldqk.org/20/history".MatchUrl();
 bool isPhoneNumber = "15205201520".MatchPhoneNumber();
 bool isIdentifyCard = "312000199502230660".MatchIdentifyCard();// 校验中国大陆身份证号
+bool isCNPatentNumber = "200410018477.9".MatchCNPatentNumber(); // 校验中国专利申请号或专利号，是否带校验位，校验位前是否带“.”，都可以校验，待校验的号码前不要带CN、ZL字样的前缀
 ```
+
 ### 2.硬件监测(仅支持Windows)
 ```csharp
 float load = SystemInfo.CpuLoad;// 获取CPU占用率
@@ -43,6 +75,8 @@ string localUsedIp = SystemInfo.GetLocalUsedIP();// 获取本机当前正在使�
 IList<string> macAddress = SystemInfo.GetMacAddress();// 获取本机所有网卡mac地址
 string osVersion = SystemInfo.GetOsVersion();// 获取操作系统版本
 RamInfo ramInfo = SystemInfo.GetRamInfo();// 获取内存信息
+var cpuSN=SystemInfo.GetCpuInfo()[0].SerialNumber; // CPU序列号
+var driveSN=SystemInfo.GetDiskInfo()[0].SerialNumber; // 硬盘序列号
 ```
 ### 3.大文件操作
 ```csharp
@@ -51,7 +85,9 @@ FileStream fs = new FileStream(@"D:\boot.vmdk", FileMode.OpenOrCreate, FileAcces
         //fs.CopyToFile(@"D:\1.bak");//同步复制大文件
         fs.CopyToFileAsync(@"D:\1.bak");//异步复制大文件
         string md5 = fs.GetFileMD5Async().Result;//异步获取文件的MD5
+        string sha1 = fs.GetFileSha1();//异步获取文件的SHA1
 }
+memoryStream.SaveFile("filename"); // 将内存流转储成文件
 ```
 ### 4.html的防XSS处理：
 ```csharp
@@ -74,6 +110,7 @@ string s = html.HtmlSantinizerStandard();//清理后：<div><span><a href="/user
 Windows.ClearMemorySilent();
 ```
 ### 6.任意进制转换
+可用于生成短id，短hash等操作，纯数学运算。
 ```csharp
 NumberFormater nf = new NumberFormater(36);//内置2-62进制的转换
 //NumberFormater nf = new NumberFormater("0123456789abcdefghijklmnopqrstuvwxyz");// 自定义进制字符，可用于生成验证码
@@ -83,7 +120,16 @@ Console.WriteLine("12345678的36进制是：" + s36); // 7clzi
 Console.WriteLine("36进制的7clzi是：" + num); // 12345678
 ```
 ```csharp
+//扩展方法形式调用
 var bin=12345678.ToBinary(36);//7clzi
+var num="7clzi".FromBinary(36);//12345678
+```
+```csharp
+//超大数字的进制转换
+var num = "E6186159D38CD50E0463A55E596336BD".FromBinaryBig(16);
+Console.WriteLine(num); // 十进制：305849028665645097422198928560410015421
+Console.WriteLine(num.ToBinary(64)); // 64进制：3C665pQUPl3whzFlVpoPqZ，22位长度
+Console.WriteLine(num.ToBinary(36)); // 36进制：dmed4dkd5bhcg4qdktklun0zh，25位长度
 ```
 ### 7.纳秒级性能计时器
 ```csharp
@@ -197,7 +243,7 @@ var list = new List<MyClass>()
         Age = 28
     }
 };
-var table = list.Select(c => new{姓名=c.Name,年龄=c.Age}).ToList().ToDataTable();// 将自动填充列姓名和年龄
+var table = list.Select(c => new{姓名=c.Name,年龄=c.Age}).ToDataTable();// 将自动填充列姓名和年龄
 ```
 ### 14.文件压缩解压
 .NET Framework
@@ -274,6 +320,9 @@ mtd.FileMergeProgressChanged+=(sender, e) =>
 {
     Console.WriteLine("下载完成");
 };
+mtd.FileMergedComplete+=(sender,e)=>{
+    Console.WriteLine("文件合并完成");
+};
 mtd.Start();//开始下载
 //mtd.Pause(); // 暂停下载
 //mtd.Resume(); // 继续下载
@@ -309,12 +358,15 @@ string s = enc.DesDecrypt("abcdefgh"); //DES密钥解密为明文
 RsaKey rsaKey = RsaCrypt.GenerateRsaKeys();// 生成RSA密钥对
 string encrypt = "123456".RSAEncrypt(rsaKey.PublicKey);// 公钥加密
 string s = encrypt.RSADecrypt(rsaKey.PrivateKey);// 私钥解密
+
+string s = "123".Crc32();// 生成crc32摘要
+string s = "123".Crc64();// 生成crc64摘要
 ```
 ### 20.实体校验
 ```csharp
 public class MyClass
 {
-    [IsEmail]
+    [IsEmail] //可在appsetting.json中添加EmailDomainWhiteList配置邮箱域名白名单，逗号分隔
     public string Email { get; set; }
 
     [IsPhone]
@@ -334,6 +386,7 @@ public class MyClass
 ```csharp
 List<string> srcs = "html".MatchImgSrcs().ToList();// 获取html字符串里所有的img标签的src属性
 var imgTags = "html".MatchImgTags();//获取html字符串里的所有的img标签
+var str="html".RemoveHtmlTag(); // 去除html标签
 ...
 ```
 ### 22.DateTime扩展
@@ -376,396 +429,8 @@ var list = new List<MyClass>()
 List<MyClass> classes = list.DistinctBy(c => c.Email).ToList();
 Console.WriteLine(classes.Count==1);//True
 ```
-### 25.对象实体映射
-在使用前需要像automapper那样，对mapper进行初始化操作
-```csharp
-using Masuit.Tools.Mapping;
-```
-```csharp
-ExpressionMapper.CreateMap<ClassA, ClassADto>();// 默认关系映射
-ExpressionMapper.CreateMap<ClassB, ClassBDto>().ForMember(s => s.ClassC.PropertyName, d => d.CustomName, true);// 自定义关系映射
 
-ExpressionMapper.ConstructServicesUsing((x) => DependencyResolver.Current.GetService(x));// 使用依赖注入容器进行构造映射
-//ExpressionMapper.ConstructServicesUsing((x) => ServiceLocator.Current.GetInstance(x));// 使用依赖注入容器进行构造映射
-ExpressionMapper.CreateMap<Product, IProduct>().ConstructUsingServiceLocator().ReverseMap();// 链式自定义关系映射和反向映射
-```
-测试class：
-```csharp
-public class TestClassA
-{
-    public string MyProperty { get; set; }
-    public int Int { get; set; }
-    public double Double { get; set; }
-    public DateTime DateTime { get; set; }
-    public TestClassC TestClassC { get; set; }
-    public List<TestClassC> List { get; set; }
-}
-
-public class TestClassB
-{
-    public string MyProperty { get; set; }
-    public int Int { get; set; }
-    public double Double { get; set; }
-    public DateTime DateTime { get; set; }
-    public TestClassC TestClassC { get; set; }
-    public List<TestClassD> List { get; set; }
-}
-
-public class TestClassC
-{
-    public string MyProperty { get; set; }
-    public int Int { get; set; }
-    public double Double { get; set; }
-    public DateTime DateTime { get; set; }
-    public TestClassD Obj { get; set; }
-}
-
-public class TestClassD
-{
-    public string MyProperty { get; set; }
-    public int Int { get; set; }
-    public double Double { get; set; }
-    public DateTime DateTime { get; set; }
-    public TestClassC Obj { get; set; }
-}
-```
-构造一个结构相对复杂的对象：
-```csharp
-var a = new TestClassA()
-{
-    MyProperty = "ssssssssssssssssssssss",
-    DateTime = DateTime.Now,
-    Double = 123.33,
-    Int = 100,
-    TestClassC = new TestClassC()
-    {
-        MyProperty = "ccccccccccccccccccccccccccc",
-        DateTime = DateTime.Now,
-        Double = 2345.555,
-        Int = 10100,
-        Obj = new TestClassD()
-        {
-            MyProperty = "ddddddddddddddddddddddddd",
-            Obj = new TestClassC()
-            {
-                MyProperty = "cccccc",
-                DateTime = DateTime.Now,
-                Double = 23458894.555,
-                Int = 10100000,
-                Obj = new TestClassD()
-            }
-        }
-    },
-    List = new List<TestClassC>()
-    {
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-    }
-};
-var b = a.Map<TestClassA, TestClassB>();
-```
-性能测试：i7-4700H+12GB DDR3
-```csharp
-#region 配置automapper
-
-Mapper.Initialize(e =>
-{
-    e.CreateMap<TestClassA, TestClassB>().ReverseMap();
-    e.CreateMap<TestClassC, TestClassD>().ReverseMap();
-});
-
-#endregion
-
-#region 配置ExpressionMapper
-
-ExpressionMapper.CreateMap<TestClassA, TestClassB>().ReverseMap();
-ExpressionMapper.CreateMap<TestClassC, TestClassD>().ReverseMap();
-
-#endregion
-
-#region 造一个大对象
-
-var a = new TestClassA()
-{
-    MyProperty = "ssssssssssssssssssssss",
-    DateTime = DateTime.Now,
-    Double = 123.33,
-    Int = 100,
-    TestClassC = new TestClassC()
-    {
-        MyProperty = "ccccccccccccccccccccccccccc",
-        DateTime = DateTime.Now,
-        Double = 2345.555,
-        Int = 10100,
-        Obj = new TestClassD()
-        {
-            MyProperty = "ddddddddddddddddddddddddd",
-            Obj = new TestClassC()
-            {
-                MyProperty = "cccccc",
-                DateTime = DateTime.Now,
-                Double = 23458894.555,
-                Int = 10100000,
-                Obj = new TestClassD()
-            }
-        }
-    },
-    List = new List<TestClassC>()
-    {
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-        new TestClassC()
-        {
-            MyProperty = "cccccc",
-            DateTime = DateTime.Now,
-            Double = 2345.555,
-            Int = 10100,
-            Obj = new TestClassD()
-            {
-                MyProperty = "ddddddddddddddddddddddddddddddddddd",
-                DateTime = DateTime.Now,
-                Double = 2345.555,
-                Int = 10100,
-                Obj = new TestClassC()
-                {
-                    MyProperty = "cccccccccccccccccccccccccccccc",
-                    DateTime = DateTime.Now,
-                    Double = 2345.555,
-                    Int = 10100,
-                    Obj = new TestClassD()
-                }
-            }
-        },
-    }
-};
-
-#endregion
-
-var time = HiPerfTimer.Execute(() =>
-{
-    a.Map<TestClassA, TestClassB>();
-    a.Map<TestClassA, TestClassB>();
-});// 因为第一次需要编译表达式树，所以测试两次
-Console.WriteLine($"ExpressionMapper映射2次耗时：{time}s");// 0.0270508s
-time = HiPerfTimer.Execute(() =>
-{
-    for (int i = 0; i < 1000000; i++)
-    {
-        var b = a.Map<TestClassA, TestClassB>();
-    }
-});
-Console.WriteLine($"ExpressionMapper映射1000000次耗时：{time}s");// 1.206569s
-
-time = HiPerfTimer.Execute(() =>
-{
-    Mapper.Map<TestClassB>(a);
-    Mapper.Map<TestClassB>(a);
-});// 映射2次为了和ExpressionMapper保持相同情况
-Console.WriteLine($"AutoMapper映射2次耗时：{time}s");// 0.0281503s
-time = HiPerfTimer.Execute(() =>
-{
-    for (int i = 0; i < 1000000; i++)
-    {
-        var b = Mapper.Map<TestClassB>(a);
-    }
-});
-Console.WriteLine($"AutoMapper映射1000000次耗时：{time}s");// 4.1858825s
-```
-### 26.枚举扩展
+### 25.枚举扩展
 ```csharp
 public enum MyEnum
 {
@@ -786,33 +451,24 @@ string display = MyEnum.Read.GetDisplay();// 获取Display标签的Name属性
 var value = typeof(MyEnum).GetValue("Read");//获取字符串表示值对应的枚举值
 string enumString = 0.ToEnumString(typeof(MyEnum));// 获取枚举值对应的字符串表示
 ```
-### 27.定长队列实现
+### 26.定长队列实现
 ```csharp
 LimitedQueue<string> queue = new LimitedQueue<string>(32);// 声明一个容量为32个元素的定长队列
 ConcurrentLimitedQueue<string> queue = new ConcurrentLimitedQueue<string>(32);// 声明一个容量为32个元素的线程安全的定长队列
 ```
-### 28.反射操作
+### 27.反射操作
 ```csharp
 MyClass myClass = new MyClass();
 PropertyInfo[] properties = myClass.GetProperties();// 获取属性列表
 myClass.SetProperty("Email","1@1.cn");//给对象设置值
-
-//动态增删对象的属性
-MyClass myClass = new MyClass();
-var mc = myClass.AddProperty(new List<ClassHelper.CustPropertyInfo>()
-{
-    new ClassHelper.CustPropertyInfo(typeof(string), "Name", "张三"),
-    new ClassHelper.CustPropertyInfo(typeof(double), "Number", 123456.0),
-});//添加属性
-object newObj = mc.DeleteProperty(new List<string>() { "Email", "Age", "IP", "PhoneNumber" });// 删除属性
-Console.WriteLine(newObj.ToJsonString());// {"Password":null,"Name":"张三","Number":123456.0}
+myClass.DeepClone(); // 对象深拷贝，带嵌套层级的
 ```
-### 29.获取线程内唯一对象
+### 28.获取线程内唯一对象
 ```csharp
 CallContext<T>.SetData("db",dbContext);//设置线程内唯一对象
 CallContext<T>.GetData("db");//获取线程内唯一对象
 ```
-### 30.asp.net core 获取静态的HttpContext对象
+### 29.asp.net core 获取静态的HttpContext对象
 Startup.cs
 ```csharp
 public void ConfigureServices(IServiceCollection services)
@@ -836,7 +492,7 @@ public async Task<IActionResult> Index()
     HttpContext context = HttpContext2.Current;
 }
 ```
-### 31.邮件发送
+### 30.邮件发送
 ```csharp
 new Email()
 {
@@ -853,7 +509,7 @@ new Email()
     Console.WriteLine(s);// 发送成功后的回调
 });// 异步发送邮件
 ```
-### 32.图像的简单处理
+### 31.图像的简单处理
 ```csharp
 ImageUtilities.CompressImage(@"F:\src\1.jpg", @"F:\dest\2.jpg");//无损压缩图片
 
@@ -867,14 +523,17 @@ Bitmap newBmp = bmp.BWPic(bmp.Width, bmp.Height);//转换成黑白
 Bitmap newBmp = bmp.CutAndResize(new Rectangle(0, 0, 1600, 900), 160, 90);//裁剪并缩放
 bmp.RevPicLR(bmp.Width, bmp.Height);//左右镜像
 bmp.RevPicUD(bmp.Width, bmp.Height);//上下镜像
+
+var marker=ImageWatermarker(stream);
+stream=maker.AddWatermark("水印文字",color,水印位置,边距,字体大小,字体,抗锯齿); // 给图片添加水印
 ```
-### 33.随机数
+### 32.随机数
 ```csharp
 Random rnd = new Random();
 int num = rnd.StrictNext();//产生真随机数
-double gauss = rnd.NextGauss(20,5);//产生正态分布的随机数
+double gauss = rnd.NextGauss(20,5);//产生正态高斯分布的随机数
 ```
-### 34.权重筛选功能
+### 33.权重筛选功能
 ```csharp
 var data=new List<WeightedItem<string>>()
 {
@@ -897,7 +556,7 @@ var selector = new WeightedSelector<string>(new List<WeightedItem<string>>()
 var item = selector.Select();//按权重选出1个元素
 var list = selector.SelectMultiple(3);//按权重选出3个元素
 ```
-### 35.EF Core支持AddOrUpdate方法
+### 34.EF Core支持AddOrUpdate方法
 ```csharp
 /// <summary>
 /// 按Id添加或更新文章实体
@@ -908,17 +567,169 @@ public override Post SavePost(Post t)
     return t;
 }
 ```
-### 38.敏感信息掩码
+### 35.敏感信息掩码
 ```csharp
 "13123456789".Mask(); // 131****5678
 "admin@masuit.com".MaskEmail(); // a****n@masuit.com
 ```
+### 36.集合扩展
+```csharp
+var list = new List<string>()
+{
+    "1","3","3","3"
+};
+list.AddRangeIf(s => s.Length > 1, "1", "11"); // 将被添加元素中的长度大于1的元素添加到list
+list.AddRangeIfNotContains("1", "11"); // 将被添加元素中不包含的元素添加到list
+list.RemoveWhere(s => s.Length<1); // 将集合中长度小于1的元素移除
+list.InsertAfter(0, "2"); // 在第一个元素之后插入
+list.InsertAfter(s => s == "1", "2"); // 在元素"1"后插入
+var dic = list.ToDictionarySafety(s => s); // 安全的转换成字典类型，当键重复时只添加一个键
+var dic = list.ToConcurrentDictionary(s => s); // 转换成并发字典类型，当键重复时只添加一个键
+var dic = list.ToDictionarySafety(s => s, s => s.GetHashCode()); // 安全的转换成字典类型，当键重复时只添加一个键
+dic.AddOrUpdate("4", 4); // 添加或更新键值对
+dic.AddOrUpdate(new Dictionary<string, int>()
+{
+    ["5"] = 5,["55"]=555
+}); // 批量添加或更新键值对
+dic.AddOrUpdate("5", 6, (s, i) => 66); // 如果是添加，则值为6，若更新则值为66
+dic.AddOrUpdate("5", 6, 666); // 如果是添加，则值为6，若更新则值为666
+dic.GetOrAdd("7",77); // 字典获取或添加元素
+dic.GetOrAdd("7",()=>77); // 字典获取或添加元素
+dic.AsConcurrentDictionary(); // 普通字典转换成并发字典集合
+var table=list.ToDataTable(); // 转换成DataTable类型
+table.AddIdentityColumn(); //给DataTable增加一个自增列
+table.HasRows(); // 检查DataTable 是否有数据行
+table.ToList<T>(); // datatable转List
+var set = list.ToHashSet(s=>s.Name);// 转HashSet
+var cts = new CancellationTokenSource(100); //取消口令
+await list.ForeachAsync(async i=>{
+    await Task.Delay(100);
+    Console.WriteLine(i);
+},cts.Token); // 异步foreach
 
+await list.ForAsync(async (item,index)=>{
+    await Task.Delay(100);
+    Console.WriteLine(item+"_"+index);
+},cts.Token); // 异步for，带索引编号
+await list.SelectAsync(async i=>{
+    await Task.Delay(100);
+    return i*10;
+}); // 异步Select
+await list.SelectAsync(async (item,index)=>{
+    await Task.Delay(100);
+    return item*10;
+}); // 异步Select，带索引编号
+string s=list.Join(",");//将字符串集合连接成逗号分隔的单字符串
+var max=list.MaxOrDefault(); // 取最大值，当集合为空的时候不会报错
+var max=list.MaxOrDefault(selector); // 取最大值，当集合为空的时候不会报错
+var max=list.MaxOrDefault(selector,default); // 取最大值，当集合为空的时候不会报错
+var max=list.MinOrDefault(); // 取最小值，当集合为空的时候不会报错
+var max=list.MinOrDefault(selector); // 取最小值，当集合为空的时候不会报错
+var max=list.MinOrDefault(selector,default); // 取最小值，当集合为空的时候不会报错
+var stdDev=list.Select(s=>s.ConvertTo<int>()).StandardDeviation(); // 求标准差
+
+var pages=queryable.ToPagedList(1,10); // 分页查询
+var pages=await queryable.ToPagedListAsync(1,10); // 分页查询
+```
+### 37.Mime类型
+```csharp
+var mimeMapper = new MimeMapper();
+var mime = mimeMapper.GetExtensionFromMime("image/jpeg"); // .jpg
+var ext = mimeMapper.GetMimeFromExtension(".jpg"); // image/jpeg
+```
+### 38.日期时间扩展
+```csharp
+DateTime.Now.GetTotalSeconds(); // 获取该时间相对于1970-01-01 00:00:00的秒数
+DateTime.Now.GetTotalMilliseconds(); // 获取该时间相对于1970-01-01 00:00:00的毫秒数
+DateTime.Now.GetTotalMicroseconds(); // 获取该时间相对于1970-01-01 00:00:00的微秒数
+DateTime.Now.GetTotalNanoseconds(); // 获取该时间相对于1970-01-01 00:00:00的纳秒数
+var indate=DateTime.Parse("2020-8-3").In(DateTime.Parse("2020-8-2"),DateTime.Parse("2020-8-4"));//true
+DateTime time="2021-1-1 8:00:00".ToDateTime(); //字符串转DateTime
+
+//时间段计算工具
+var range = new DateTimeRange(DateTime.Parse("2020-8-3"), DateTime.Parse("2020-8-5"));
+range.Union(DateTime.Parse("2020-8-4"), DateTime.Parse("2020-8-6")); //连接两个时间段，结果：2020-8-3~2020-8-6
+range.In(DateTime.Parse("2020-8-3"), DateTime.Parse("2020-8-6"));//判断是否在某个时间段内，true
+var (intersected,range2) = range.Intersect(DateTime.Parse("2020-8-4"), DateTime.Parse("2020-8-6"));//两个时间段是否相交，(true,2020-8-3~2020-8-4)
+range.Contains(DateTime.Parse("2020-8-3"), DateTime.Parse("2020-8-4"));//判断是否包含某个时间段，true
+...
+```
+### 39.流转换
+```csharp
+stream.SaveAsMemoryStream(); // 任意流转换成内存流
+stream.ToArray(); // 任意流转换成二进制数组
+```
+### 40.数值转换
+```csharp
+1.2345678901.Digits8(); // 将小数截断为8位
+1.23.ConvertTo<int>(); // 小数转int
+1.23.ConvertTo<T>(); // 小数转T基本类型
+bool b=1.23.TryConvertTo<T>(out result); // 小数转T基本类型
+var num=1.2345.ToDecimal(2); //转decimal并保留两位小数
+```
+### 41.简繁转换
+```csharp
+var str="个体".ToTraditional(); // 转繁体
+var str="個體".ToSimplified(); // 转简体
+```
+### 42.INI配置文件操作
+```csharp
+INIFile ini=new INIFile("filename.ini");
+ini.IniWriteValue(section,key,value); // 写值
+ini.IniReadValue(section,key); // 读值
+ini.ClearAllSection(); // 清空所有配置节
+ini.ClearSection(section); // 清空配置节
+```
+### 43.雷达图计算引擎
+应用场景：计算两个多边形的相似度，用户画像之类的
+```csharp
+var points=RadarChartEngine.ComputeIntersection(chart1,chart2); //获取两个多边形的相交区域
+points.ComputeArea(); //计算多边形面积
+```
+### 44.树形结构实现
+基本接口类：  
+ITreeChildren：带Children属性的接口  
+ITreeParent：带Parent属性的接口  
+ITree：继承ITreeParent和ITreeChildren，同时多了Name属性  
+
+相关扩展方法：
+```csharp
+trees.Filter(func); // 从树形集合中过滤
+trees.Flatten(); // 将数据平铺开
+tree.AllChildren(); // 获取所有的子级
+tree.AllParent(); // 获取所有的父级
+tree.IsRoot(); // 是否是根节点
+tree.IsLeaf(); // 是否是叶子节点
+tree.Level(); // 所处深度/层级
+tree.Path(); // 全路径
+
+var tree=list.ToTree(c => c.Id, c => c.Pid);//继承自ITreeParent<T>, ITreeChildren<T>的集合转换成树形结构
+var tree=list.ToTreeGeneral(c => c.Id, c => c.Pid);//一般的集合转换成树形结构
+```
+### 45.简单的Excel导出
+需要额外依赖包：`Masuit.Tools.Excel`
+```csharp
+var stream=list.Select(item=>new{
+    姓名=item.Name,
+    年龄=item.Age,
+    item.Gender,
+    Avatar=Image.FromStream(filestream) //图片列
+}).ToDataTable().ToExcel("Sheet1"); //自定义列名导出
+var stream=list.ToDataTable("Sheet1").ToExcel("文件密码");
+```
+#### 一些约定规则：  
+1. 图片列支持Stream、Bitmap、IEnumerable<Stream>、IEnumerable<Bitmap>、IDictionary<string,Stream>、IDictionary<string,MemoryStream>、IDictionary<string,Bitmap>类型；
+2. 其中，如果是IDictionary类型的图片列，字典的键为图片超链接的完整url；
+3. 默认字段名作为列名导出；
+4. 若list是一个具体的强类型，默认会先查找每个字段的Description标记，若有Description标记，则取Description标记作为列名显示
+5. ToExcel方法支持DataTable、List<DataTable>、Dictionary<string, DataTable>类型的直接调用
+    
+    
 # Asp.Net MVC和Asp.Net Core的支持断点续传和多线程下载的ResumeFileResult
 
-允许你在ASP.NET Core中通过MVC/WebAPI应用程序传输文件数据时使用断点续传以及多线程下载。
+在ASP.NET Core中通过MVC/WebAPI应用程序传输文件数据时使用断点续传以及多线程下载支持。
 
-它允许提供`ETag`标题以及`Last-Modified`标题。 它还支持以下前置条件标题：`If-Match`，`If-None-Match`，`If-Modified-Since`，`If-Unmodified-Since`，`If-Range`。
+它提供了`ETag`标头以及`Last-Modified`标头。 它还支持以下前置条件标头：`If-Match`，`If-None-Match`，`If-Modified-Since`，`If-Unmodified-Since`，`If-Range`。
 ## 支持 ASP.NET Core 2.0+
 从.NET Core2.0开始，ASP.NET Core内部支持断点续传。 因此只是对FileResult做了一些扩展。 只留下了“Content-Disposition” Inline的一部分。 所有代码都依赖于基础.NET类。
 
@@ -965,6 +776,8 @@ public void ConfigureServices(IServiceCollection services)
 ```
 
 然后在你的控制器中，你可以像在`FileResult`一样的方式使用它。
+<details>
+    <summary>点击查看代码</summary>
 
 ```csharp
 using Masuit.Tools.AspNetCore.ResumeFileResults.Extensions;
@@ -1085,7 +898,7 @@ public IActionResult VirtualFile(bool fileName, bool etag)
 ```
 
 以上示例将为您的数据提供“Content-Disposition：attachment”。 当没有提供fileName时，数据将作为“Content-Disposition：inline”提供。
-另外，它可以提供`ETag`和`LastModified`标题。
+另外，它可以提供`ETag`和`LastModified`标头。
 
 ```csharp
 [HttpGet("virtual/{fileName}")]
@@ -1099,6 +912,8 @@ public IActionResult VirtualFile(bool fileName)
     return result;
 }
 ```
+</details>
+
 ### 推荐项目
 基于EntityFrameworkCore和Lucene.NET实现的全文检索搜索引擎：[Masuit.LuceneEFCore.SearchEngine](https://github.com/ldqk/Masuit.LuceneEFCore.SearchEngine "Masuit.LuceneEFCore.SearchEngine")
 

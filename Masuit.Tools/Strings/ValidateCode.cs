@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Web;
-
 namespace Masuit.Tools.Strings
 {
     /// <summary>
@@ -85,7 +83,7 @@ namespace Masuit.Tools.Strings
             g.DrawRectangle(new Pen(Color.Silver), 0, 0, image.Width - 1, image.Height - 1);
             //保存图片数据
             using MemoryStream stream = new MemoryStream();
-            image.Save(stream, ImageFormat.Jpeg);
+            image.Save(stream, System.Drawing.Imaging.ImageFormat.Jpeg);
             //输出图片流
             context.Response.Clear();
             context.Response.ContentType = "image/jpeg";
