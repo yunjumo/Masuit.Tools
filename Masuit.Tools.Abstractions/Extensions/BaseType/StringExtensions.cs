@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Masuit.Tools
@@ -68,11 +69,11 @@ namespace Masuit.Tools
         /// 任意进制转十进制
         /// </summary>
         /// <param name="str"></param>
-        /// <param name="bin">进制</param>
+        /// <param name="base">进制</param>
         /// <returns></returns>
-        public static long FromBinary(this string str, int bin)
+        public static long FromBinary(this string str, byte @base)
         {
-            var nf = new NumberFormater(bin);
+            var nf = new NumberFormater(@base);
             return nf.FromString(str);
         }
 
@@ -80,11 +81,11 @@ namespace Masuit.Tools
         /// 任意进制转大数十进制
         /// </summary>
         /// <param name="str"></param>
-        /// <param name="bin">进制</param>
+        /// <param name="base">进制</param>
         /// <returns></returns>
-        public static BigInteger FromBinaryBig(this string str, int bin)
+        public static BigInteger FromBinaryBig(this string str, byte @base)
         {
-            var nf = new NumberFormater(bin);
+            var nf = new NumberFormater(@base);
             return nf.FromStringBig(str);
         }
 
@@ -113,6 +114,36 @@ namespace Masuit.Tools
         }
 
         /// <summary>
+        /// 检测字符串中是否包含列表中的关键词
+        /// </summary>
+        /// <param name="s">源字符串</param>
+        /// <param name="regex">关键词列表</param>
+        /// <param name="ignoreCase">忽略大小写</param>
+        /// <returns></returns>
+        public static bool RegexMatch(this string s, string regex, bool ignoreCase = true)
+        {
+            if (string.IsNullOrEmpty(regex) || string.IsNullOrEmpty(s))
+            {
+                return false;
+            }
+
+            if (ignoreCase)
+            {
+                return Regex.IsMatch(s, regex, RegexOptions.IgnoreCase);
+            }
+
+            return Regex.IsMatch(s, regex);
+        }
+
+        /// <summary>
+        /// 检测字符串中是否包含列表中的关键词
+        /// </summary>
+        /// <param name="s">源字符串</param>
+        /// <param name="regex">关键词列表</param>
+        /// <returns></returns>
+        public static bool RegexMatch(this string s, Regex regex) => !string.IsNullOrEmpty(s) && regex.IsMatch(s);
+
+        /// <summary>
         /// 判断是否包含符号
         /// </summary>
         /// <param name="str"></param>
@@ -123,9 +154,8 @@ namespace Masuit.Tools
             return str switch
             {
                 null => false,
-                string a when string.IsNullOrEmpty(a) => false,
-                string a when a == string.Empty => false,
-                _ => symbols.Any(t => str.Contains(t))
+                "" => false,
+                _ => symbols.Any(str.Contains)
             };
         }
 
@@ -220,7 +250,8 @@ namespace Masuit.Tools
             if (isMatch && valid)
             {
                 var nslookup = new LookupClient();
-                var query = await nslookup.QueryAsync(s.Split('@')[1], QueryType.MX);
+                using var cts = new CancellationTokenSource(100);
+                var query = await nslookup.QueryAsync(s.Split('@')[1], QueryType.MX, cancellationToken: cts.Token);
                 var result = await query.Answers.MxRecords().SelectAsync(r => Dns.GetHostAddressesAsync(r.Exchange.Value).ContinueWith(t =>
                 {
                     if (t.IsCanceled || t.IsFaulted)
@@ -421,12 +452,8 @@ namespace Masuit.Tools
         /// <returns></returns>
         public static bool IsPrivateIP(this string ip)
         {
-            if (MatchInetAddress(ip))
-            {
-                return IPAddress.Parse(ip).IsPrivateIP();
-            }
-
-            return false;
+            var address = MatchInetAddress(ip, out var b);
+            return b && address.IsPrivateIP();
         }
 
         /// <summary>
@@ -639,6 +666,17 @@ $", RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase | RegexOption
                 isPatnumTrue = false;
             }
             return isPatnumTrue;
+        }
+
+        /// <summary>
+        /// 取字符串前{length}个字
+        /// </summary>
+        /// <param name="s"></param>
+        /// <param name="length"></param>
+        /// <returns></returns>
+        public static string Take(this string s, int length)
+        {
+            return s.Length > length ? s.Substring(0, length) : s;
         }
     }
     #endregion

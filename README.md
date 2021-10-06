@@ -1,6 +1,6 @@
 # Masuit.Tools
-[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE) [![nuget](https://img.shields.io/nuget/v/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) [![nuget](https://img.shields.io/nuget/dt/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) <a href="https://gitee.com/masuit/Masuit.Tools"><img src="https://gitee.com/static/images/logo-black.svg" height="24"></a> <a href="https://github.com/ldqk/Masuit.Tools"><img src="https://p.pstatp.com/origin/13841000102b8e2ba20b2" height="24"></a>  
-包含一些常用的操作类，大都是静态类，加密解密，反射操作，动态编译，权重随机筛选算法，简繁转换，分布式短id，表达式树，linq扩展，文件压缩，多线程下载和FTP客户端，硬件信息，字符串扩展方法，日期时间扩展操作，中国农历，大文件拷贝，图像裁剪，验证码，断点续传，实体映射、集合扩展、Excel导出等常用封装。**诸多功能集一身，代码量不到1MB！**  
+[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE) [![nuget](https://img.shields.io/nuget/v/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) [![nuget](https://img.shields.io/nuget/dt/Masuit.Tools.Core.svg)](https://www.nuget.org/packages/Masuit.Tools.Core) ![codeSize](https://img.shields.io/github/languages/code-size/ldqk/Masuit.Tools.svg) ![language](https://img.shields.io/github/languages/top/ldqk/Masuit.Tools.svg) <a href="https://gitee.com/masuit/Masuit.Tools"><img src="https://gitee.com/static/images/logo-black.svg" height="24"></a> <a href="https://github.com/ldqk/Masuit.Tools"><img src="https://p.pstatp.com/origin/13841000102b8e2ba20b2" height="24"></a>  
+包含一些常用的操作类，大都是静态类，加密解密，反射操作，权重随机筛选算法，分布式短id，表达式树，linq扩展，文件压缩，多线程下载和FTP客户端，硬件信息，字符串扩展方法，日期时间扩展操作，中国农历，大文件拷贝，图像裁剪，验证码，断点续传，集合扩展、Excel导出等常用封装。**诸多功能集一身，代码量不到1MB！**  
 [官网教程](https://masuit.com/55)  
 
 项目开发模式：日常代码积累+网络搜集  
@@ -49,9 +49,11 @@ public Startup(IConfiguration configuration)
 }
 ```
 ## 特色功能示例代码
+### 在线体验
+https://dotnetfiddle.net/jclU4y
 ### 1.检验字符串是否是Email、手机号、URL、IP地址、身份证号等
 ```csharp
-bool isEmail="3444764617@qq.com".MatchEmail(); // 可在appsetting.json中添加EmailDomainWhiteList和EmailDomainBlockList配置邮箱域名黑白名单，逗号分隔，如"EmailDomainBlockList": "^\\w{1,5}@qq.com,^\\w{1,5}@163.com,^\\w{1,5}@gmail.com,^\\w{1,5}@outlook.com",
+bool isEmail="337845818@qq.com".MatchEmail(); // 可在appsetting.json中添加EmailDomainWhiteList和EmailDomainBlockList配置邮箱域名黑白名单，逗号分隔，如"EmailDomainBlockList": "^\\w{1,5}@qq.com,^\\w{1,5}@163.com,^\\w{1,5}@gmail.com,^\\w{1,5}@outlook.com",
 bool isInetAddress = "114.114.114.114".MatchInetAddress();
 bool isUrl = "http://ldqk.org/20/history".MatchUrl();
 bool isPhoneNumber = "15205201520".MatchPhoneNumber();
@@ -65,9 +67,6 @@ float load = SystemInfo.CpuLoad;// 获取CPU占用率
 long physicalMemory = SystemInfo.PhysicalMemory;// 获取物理内存总数
 long memoryAvailable = SystemInfo.MemoryAvailable;// 获取物理内存可用率
 double freePhysicalMemory = SystemInfo.GetFreePhysicalMemory();// 获取可用物理内存
-Dictionary<string, string> diskFree = SystemInfo.DiskFree();// 获取磁盘每个分区可用空间
-Dictionary<string, string> diskTotalSpace = SystemInfo.DiskTotalSpace();// 获取磁盘每个分区总大小
-Dictionary<string, double> diskUsage = SystemInfo.DiskUsage();// 获取磁盘每个分区使用率
 double temperature = SystemInfo.GetCPUTemperature();// 获取CPU温度
 int cpuCount = SystemInfo.GetCpuCount();// 获取CPU核心数
 IList<string> ipAddress = SystemInfo.GetIPAddress();// 获取本机所有IP地址
@@ -105,12 +104,13 @@ string html = @"<link href='/Content/font-awesome/css' rel='stylesheet'/>
         </div>";
 string s = html.HtmlSantinizerStandard();//清理后：<div><span><a href="/users/account/LogOff">退出</a></span></div>
 ```
-### 5.整理操作系统的内存：
+### 5.整理Windows系统的内存：
+类似于各大系统优化软件的加速球功能
 ```csharp
 Windows.ClearMemorySilent();
 ```
 ### 6.任意进制转换
-可用于生成短id，短hash等操作，纯数学运算。
+可用于生成短id，短hash，随机字符串等操作，纯数学运算。
 ```csharp
 NumberFormater nf = new NumberFormater(36);//内置2-62进制的转换
 //NumberFormater nf = new NumberFormater("0123456789abcdefghijklmnopqrstuvwxyz");// 自定义进制字符，可用于生成验证码
@@ -118,6 +118,7 @@ string s36 = nf.ToString(12345678);
 long num = nf.FromString("7clzi");
 Console.WriteLine("12345678的36进制是：" + s36); // 7clzi
 Console.WriteLine("36进制的7clzi是：" + num); // 12345678
+var s = new NumberFormater(62).ToString(new Random().Next(100000, int.MaxValue)); //配合随机数生成随机字符串
 ```
 ```csharp
 //扩展方法形式调用
@@ -452,6 +453,7 @@ var value = typeof(MyEnum).GetValue("Read");//获取字符串表示值对应的�
 string enumString = 0.ToEnumString(typeof(MyEnum));// 获取枚举值对应的字符串表示
 ```
 ### 26.定长队列实现
+`如果是.NET5及以上，推荐使用框架自带的Channel实现该功能`
 ```csharp
 LimitedQueue<string> queue = new LimitedQueue<string>(32);// 声明一个容量为32个元素的定长队列
 ConcurrentLimitedQueue<string> queue = new ConcurrentLimitedQueue<string>(32);// 声明一个容量为32个元素的线程安全的定长队列
@@ -532,6 +534,7 @@ stream=maker.AddWatermark("水印文字",color,水印位置,边距,字体大小,
 Random rnd = new Random();
 int num = rnd.StrictNext();//产生真随机数
 double gauss = rnd.NextGauss(20,5);//产生正态高斯分布的随机数
+var s = new NumberFormater(62).ToString(new Random().Next(100000, int.MaxValue));//生成随机字符串
 ```
 ### 33.权重筛选功能
 ```csharp
@@ -724,6 +727,28 @@ var stream=list.ToDataTable("Sheet1").ToExcel("文件密码");
 4. 若list是一个具体的强类型，默认会先查找每个字段的Description标记，若有Description标记，则取Description标记作为列名显示
 5. ToExcel方法支持DataTable、List<DataTable>、Dictionary<string, DataTable>类型的直接调用
     
+
+### 46.EFCore实体对比功能
+获取指定实体的变更
+```csharp
+var changes=dbContext.GetChanges<Post>();//获取变更字段信息
+var added=dbContext.GetAdded<Post>();//获取添加的实体字段信息
+var removed=dbContext.GetRemoved<Post>();//获取被移除的实体字段信息  
+var allchanges=dbContext.GetAllChanges<Post>();//获取增删改的实体字段信息  
+```
+获取所有实体的变更
+```csharp
+var changes=dbContext.GetChanges();//获取变更字段信息
+var added=dbContext.GetAdded();//获取添加的实体字段信息
+var removed=dbContext.GetRemoved();//获取被移除的实体字段信息  
+var allchanges=dbContext.GetAllChanges();//获取增删改的实体字段信息  
+```
+对比信息包含属性信息、旧值、新值、实体信息、键信息、变更状态等
+### 47.任何类型支持链式调用
+```csharp
+a.Next(func1).Next(func2).Next(func3);
+"123".Next(s=>s.ToInt32()).Next(x=>x*2).Next(x=>Math.Log(x));
+```
     
 # Asp.Net MVC和Asp.Net Core的支持断点续传和多线程下载的ResumeFileResult
 
@@ -918,5 +943,3 @@ public IActionResult VirtualFile(bool fileName)
 基于EntityFrameworkCore和Lucene.NET实现的全文检索搜索引擎：[Masuit.LuceneEFCore.SearchEngine](https://github.com/ldqk/Masuit.LuceneEFCore.SearchEngine "Masuit.LuceneEFCore.SearchEngine")
 
 开源博客系统：[Masuit.MyBlogs](https://github.com/ldqk/Masuit.MyBlogs "Masuit.MyBlogs")
-### 友情赞助
-![打赏支持](https://ae01.alicdn.com/kf/H9c0ef439b7ae4a5ba4151456f3c5f0a2N.jpg)
