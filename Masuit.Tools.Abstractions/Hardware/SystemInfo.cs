@@ -1,14 +1,16 @@
 ﻿using Masuit.Tools.Logging;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+using Microsoft.Win32;
+using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Linq;
+using System.IO.MemoryMappedFiles;
 using System.Management;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml.Linq;
+using Masuit.Tools.Abstractions.Hardware;
 
 namespace Masuit.Tools.Hardware
 {
@@ -24,174 +26,129 @@ namespace Masuit.Tools.Hardware
         private const int GwlStyle = -16;
         private const int WsVisible = 268435456;
         private const int WsBorder = 8388608;
-        private static readonly PerformanceCounter PcCpuLoad; //CPU计数器 
+        private static readonly string[] InstanceNames = [];
+        private static readonly Dictionary<string, dynamic> Cache = new();
+        private static readonly ConcurrentDictionary<string, PerformanceCounter> Counters = [];
+        public static bool IsWinPlatform => Environment.OSVersion.Platform is PlatformID.Win32Windows or PlatformID.Win32S or PlatformID.WinCE or PlatformID.Win32NT;
 
-        private static readonly PerformanceCounter MemoryCounter = new PerformanceCounter();
-        private static readonly PerformanceCounter CpuCounter = new PerformanceCounter();
-        private static readonly PerformanceCounter DiskReadCounter = new PerformanceCounter();
-        private static readonly PerformanceCounter DiskWriteCounter = new PerformanceCounter();
+        #endregion 字段
 
-        private static readonly string[] InstanceNames;
-        private static readonly PerformanceCounter[] NetRecvCounters;
-        private static readonly PerformanceCounter[] NetSentCounters;
-
-        #endregion
-
-        #region 构造函数 
+        #region 构造函数
 
         /// <summary>
         /// 静态构造函数
         /// </summary>
         static SystemInfo()
         {
-            //初始化CPU计数器 
-            PcCpuLoad = new PerformanceCounter("Processor", "% Processor Time", "_Total")
-            {
-                MachineName = "."
-            };
-            PcCpuLoad.NextValue();
-
-            //CPU个数 
-            ProcessorCount = Environment.ProcessorCount;
-
-            //获得物理内存 
-            try
-            {
-                using var mc = new ManagementClass("Win32_ComputerSystem");
-                using var moc = mc.GetInstances();
-                foreach (var mo in moc)
-                {
-                    using (mo)
-                    {
-                        if (mo["TotalPhysicalMemory"] != null)
-                        {
-                            PhysicalMemory = long.Parse(mo["TotalPhysicalMemory"].ToString());
-                        }
-                    }
-                }
-
-                var cat = new PerformanceCounterCategory("Network Interface");
-                InstanceNames = cat.GetInstanceNames();
-                NetRecvCounters = new PerformanceCounter[InstanceNames.Length];
-                NetSentCounters = new PerformanceCounter[InstanceNames.Length];
-                for (int i = 0; i < InstanceNames.Length; i++)
-                {
-                    NetRecvCounters[i] = new PerformanceCounter();
-                    NetSentCounters[i] = new PerformanceCounter();
-                }
-
-                CompactFormat = false;
-            }
-            catch (Exception e)
-            {
-                LogManager.Error(e);
-            }
-        }
-
-        #endregion
-
-        private static bool CompactFormat { get; set; }
-
-        #region CPU核心 
-
-        /// <summary>
-        /// 获取CPU核心数 
-        /// </summary>
-        public static int ProcessorCount { get; }
-
-        #endregion
-
-        #region CPU占用率 
-
-        /// <summary>
-        /// 获取CPU占用率 %
-        /// </summary>
-        public static float CpuLoad => PcCpuLoad.NextValue();
-
-        #endregion
-
-        #region 可用内存 
-
-        /// <summary>
-        /// 获取可用内存
-        /// </summary>
-        public static long MemoryAvailable
-        {
-            get
+            if (IsWinPlatform)
             {
                 try
                 {
-                    using var mc = new ManagementClass("Win32_OperatingSystem");
+                    //初始化CPU计数器
+                    Counters["CpuCounter"] = new PerformanceCounter("Processor", "% Processor Time", "_Total")
+                    {
+                        MachineName = "."
+                    };
+                    Counters["CpuCounter"].NextValue();
+
+                    //获得物理内存
+                    using var mc = new ManagementClass("Win32_ComputerSystem");
                     using var moc = mc.GetInstances();
                     foreach (var mo in moc)
                     {
                         using (mo)
                         {
-                            if (mo["FreePhysicalMemory"] != null)
+                            if (mo["TotalPhysicalMemory"] != null)
                             {
-                                return 1024 * long.Parse(mo["FreePhysicalMemory"].ToString());
+                                PhysicalMemory = mo["TotalPhysicalMemory"].ChangeTypeTo<long>();
+                                break;
                             }
                         }
                     }
 
-                    return 0;
+                    var cat = new PerformanceCounterCategory("Network Interface");
+                    InstanceNames = cat.GetInstanceNames();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    return 0;
+                    LogManager.Error(e);
                 }
+            }
+
+            //CPU个数
+            ProcessorCount = Environment.ProcessorCount;
+        }
+
+        #endregion 构造函数
+
+        private static bool CompactFormat { get; set; }
+
+        #region CPU相关
+
+        /// <summary>
+        /// 获取CPU核心数
+        /// </summary>
+        public static int ProcessorCount { get; }
+
+        /// <summary>
+        /// 获取CPU占用率 %
+        /// </summary>
+        public static float CpuLoad
+        {
+            get
+            {
+                if (!IsWinPlatform) return 0;
+                return Counters["CpuCounter"].NextValue();
             }
         }
 
-        #endregion
-
-        #region 物理内存 
-
         /// <summary>
-        /// 获取物理内存
+        /// 获取当前进程的CPU使用率（至少需要0.5s）
         /// </summary>
-        public static long PhysicalMemory { get; }
-
-        #endregion
-
-        #region 查找所有应用程序标题 
-
-        /// <summary>
-        /// 查找所有应用程序标题 
-        /// </summary>
-        /// <param name="handle">应用程序标题范型</param>
-        /// <returns>所有应用程序集合</returns>
-        public static ArrayList FindAllApps(int handle)
+        /// <returns></returns>
+        public static async Task<double> GetCpuUsageForProcess(CancellationToken cancellationToken = default)
         {
-            var apps = new ArrayList();
-            int hwCurr = GetWindow(handle, GwHwndfirst);
+            var startTime = DateTime.UtcNow;
+            using var p1 = Process.GetCurrentProcess();
+            var startCpuUsage = p1.TotalProcessorTime;
+            await Task.Delay(500, cancellationToken);
+            var endTime = DateTime.UtcNow;
+            using var p2 = Process.GetCurrentProcess();
+            var endCpuUsage = p2.TotalProcessorTime;
+            var cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
+            var totalMsPassed = (endTime - startTime).TotalMilliseconds;
+            return cpuUsedMs / (Environment.ProcessorCount * totalMsPassed) * 100;
+        }
 
-            while (hwCurr > 0)
+        /// <summary>
+        /// 获取CPU温度
+        /// </summary>
+        /// <returns>CPU温度</returns>
+        public static float GetCPUTemperature()
+        {
+            if (!IsWinPlatform) return 0;
+
+            try
             {
-                int IsTask = WsVisible | WsBorder;
-                int lngStyle = GetWindowLongA(hwCurr, GwlStyle);
-                bool taskWindow = (lngStyle & IsTask) == IsTask;
-                if (taskWindow)
+                using var mos = new ManagementObjectSearcher(@"root\WMI", "select * from MSAcpi_ThermalZoneTemperature");
+                using var moc = mos.Get();
+                foreach (var mo in moc)
                 {
-                    int length = GetWindowTextLength(new IntPtr(hwCurr));
-                    StringBuilder sb = new StringBuilder(2 * length + 1);
-                    GetWindowText(hwCurr, sb, sb.Capacity);
-                    string strTitle = sb.ToString();
-                    if (!string.IsNullOrEmpty(strTitle))
+                    using (mo)
                     {
-                        apps.Add(strTitle);
+                        //这就是CPU的温度了
+                        var temp = (mo["CurrentTemperature"].ChangeTypeTo<float>() - 2732) / 10;
+                        return (float)Math.Round(temp, 2);
                     }
                 }
 
-                hwCurr = GetWindow(hwCurr, GwHwndnext);
+                return 0;
             }
-
-            return apps;
+            catch (Exception)
+            {
+                return -1;
+            }
         }
-
-        #endregion
-
-        #region 获取CPU的数量
 
         /// <summary>
         /// 获取CPU的数量
@@ -201,21 +158,25 @@ namespace Masuit.Tools.Hardware
         {
             try
             {
-                using var m = new ManagementClass("Win32_Processor");
-                using var moc = m.GetInstances();
-                return moc.Count;
+                return Cache.GetOrAdd(nameof(GetCpuCount), () =>
+                {
+                    if (!IsWinPlatform)
+                    {
+                        return Environment.ProcessorCount;
+                    }
+
+                    using var m = new ManagementClass("Win32_Processor");
+                    using var moc = m.GetInstances();
+                    return moc.Count;
+                });
             }
             catch (Exception)
             {
-                return 0;
+                return -1;
             }
         }
 
-        #endregion
-
-        #region 获取CPU信息
-
-        private static readonly Lazy<List<ManagementBaseObject>> CpuObjects = new Lazy<List<ManagementBaseObject>>(() =>
+        private static readonly Lazy<List<ManagementBaseObject>> CpuObjects = new(() =>
         {
             using var mos = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
             using var moc = mos.Get();
@@ -230,30 +191,171 @@ namespace Masuit.Tools.Hardware
         {
             try
             {
+                if (!IsWinPlatform) return [];
                 return CpuObjects.Value.Select(mo => new CpuInfo
                 {
-                    CpuLoad = CpuLoad,
                     NumberOfLogicalProcessors = ProcessorCount,
-                    CurrentClockSpeed = mo.Properties["CurrentClockSpeed"].Value.ToString(),
-                    Manufacturer = mo.Properties["Manufacturer"].Value.ToString(),
-                    MaxClockSpeed = mo.Properties["MaxClockSpeed"].Value.ToString(),
-                    Type = mo.Properties["Name"].Value.ToString(),
-                    DataWidth = mo.Properties["DataWidth"].Value.ToString(),
-                    SerialNumber = mo.Properties["ProcessorId"].Value.ToString(),
-                    DeviceID = mo.Properties["DeviceID"].Value.ToString(),
-                    NumberOfCores = Convert.ToInt32(mo.Properties["NumberOfCores"].Value),
-                    Temperature = GetCPUTemperature()
+                    CurrentClockSpeed = mo["CurrentClockSpeed"]?.ToString(),
+                    Manufacturer = mo["Manufacturer"]?.ToString(),
+                    MaxClockSpeed = mo["MaxClockSpeed"]?.ToString(),
+                    Type = mo["Name"]?.ToString(),
+                    DataWidth = mo["DataWidth"]?.ToString(),
+                    SerialNumber = mo["ProcessorId"]?.ToString(),
+                    DeviceID = mo["DeviceID"]?.ToString(),
+                    NumberOfCores = mo["NumberOfCores"].ChangeTypeTo<int>()
                 }).ToList();
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                return new List<CpuInfo>();
+                return [new CpuInfo
+                    {
+                        DeviceID = null,
+                        Type = e.Message,
+                        Manufacturer = null,
+                        MaxClockSpeed = null,
+                        CurrentClockSpeed = null,
+                        NumberOfCores = 0,
+                        NumberOfLogicalProcessors = 0,
+                        DataWidth = null,
+                        SerialNumber = null
+                    }
+                ];
             }
         }
 
-        #endregion
+#if NET5_0_OR_GREATER
+        public static string GetCpuId()
+        {
+            if (System.Runtime.Intrinsics.X86.X86Base.IsSupported)
+            {
+                var (eax, ebx, ecx, edx) = System.Runtime.Intrinsics.X86.X86Base.CpuId(1, 0);
+                return edx.ToString("X").PadLeft(8, '0') + eax.ToString("X").PadLeft(8, '0');
+            }
+            return null;
+        }
+#endif
 
-        #region 获取内存信息
+        /// <summary>
+        /// 获取进程的实例名称
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        public static string GetInstanceName(this Process p)
+        {
+            try
+            {
+                var pcc = new PerformanceCounterCategory("Process");
+                var instances = pcc.GetInstanceNames();
+                foreach (string instance in instances)
+                {
+                    var counter = Counters.GetOrAdd(nameof(instance) + instance, () => new PerformanceCounter("Process", "ID Process", instance));
+                    if (Math.Abs(counter.NextValue() - p.Id) < 1e-8)
+                    {
+                        return instance;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 获取进程的CPU使用率
+        /// </summary>
+        /// <returns></returns>
+        public static float GetProcessCpuUsage(int pid)
+        {
+            using var process = Process.GetProcessById(pid);
+            return GetProcessCpuUsage(process);
+        }
+
+        /// <summary>
+        /// 获取进程的CPU使用率
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static IEnumerable<(Process process, float usage)> GetProcessCpuUsage(string name)
+        {
+            var processes = Process.GetProcessesByName(name);
+            return GetProcessCpuUsage(processes);
+        }
+
+        /// <summary>
+        /// 获取进程的CPU使用率
+        /// </summary>
+        /// <param name="processes"></param>
+        /// <returns></returns>
+        public static IEnumerable<(Process process, float usage)> GetProcessCpuUsage(this Process[] processes)
+        {
+            return processes.Select(p => (p, GetProcessCpuUsage(p)));
+        }
+
+        /// <summary>
+        /// 获取进程的CPU使用率
+        /// </summary>
+        /// <param name="process"></param>
+        /// <returns></returns>
+        public static float GetProcessCpuUsage(this Process process)
+        {
+            if (!IsWinPlatform) return 0;
+            string instance = GetInstanceName(process);
+            if (instance != null)
+            {
+                var cpuCounter = Counters.GetOrAdd("Processor Time" + instance, () =>
+                {
+                    var counter = new PerformanceCounter("Process", "% Processor Time", instance);
+                    counter.NextValue();
+                    return counter;
+                });
+                //Thread.Sleep(200); //等200ms(是测出能换取下个样本的最小时间间隔)，让后系统获取下一个样本,因为第一个样本无效
+                return cpuCounter.NextValue() / Environment.ProcessorCount;
+            }
+            return 0;
+        }
+
+        #endregion CPU相关
+
+        #region 内存相关
+
+        /// <summary>
+        /// 获取可用内存(单位：Byte)
+        /// </summary>
+        public static long MemoryAvailable
+        {
+            get
+            {
+                if (!IsWinPlatform) return 0;
+
+                try
+                {
+                    using var mc = new ManagementClass("Win32_OperatingSystem");
+                    using var moc = mc.GetInstances();
+                    foreach (var mo in moc)
+                    {
+                        using (mo)
+                        {
+                            if (mo["FreePhysicalMemory"] != null)
+                            {
+                                return 1024 * mo["FreePhysicalMemory"].ChangeTypeTo<long>();
+                            }
+                        }
+                    }
+
+                    return 0;
+                }
+                catch (Exception)
+                {
+                    return -1;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 获取物理内存(单位：Byte)
+        /// </summary>
+        public static long PhysicalMemory { get; }
 
         /// <summary>
         /// 获取内存信息
@@ -272,67 +374,18 @@ namespace Masuit.Tools.Hardware
             };
         }
 
-        #endregion
-
-        #region 获取CPU温度
-
-        /// <summary>
-        /// 获取CPU温度
-        /// </summary>
-        /// <returns>CPU温度</returns>
-        public static float GetCPUTemperature()
-        {
-            try
-            {
-                using var mos = new ManagementObjectSearcher(@"root\WMI", "select * from MSAcpi_ThermalZoneTemperature");
-                using var moc = mos.Get();
-                foreach (var mo in moc)
-                {
-                    using (mo)
-                    {
-                        //这就是CPU的温度了
-                        var temp = (float.Parse(mo.Properties["CurrentTemperature"].Value.ToString()) - 2732) / 10;
-                        return (float)Math.Round(temp, 2);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                return 0;
-            }
-
-            return 0;
-        }
-
-        #endregion
-
-        #region WMI接口获取CPU使用率
-
-        /// <summary>
-        /// WMI接口获取CPU使用率
-        /// </summary>
-        /// <returns></returns>
-        public static string GetProcessorData()
-        {
-            float d = GetCounterValue(CpuCounter, "Processor", "% Processor Time", "_Total");
-            return CompactFormat ? (int)d + "%" : d.ToString("F") + "%";
-        }
-
-        #endregion
-
-        #region 获取虚拟内存使用率详情
-
         /// <summary>
         /// 获取虚拟内存使用率详情
         /// </summary>
         /// <returns></returns>
         public static string GetMemoryVData()
         {
-            float d = GetCounterValue(MemoryCounter, "Memory", "% Committed Bytes In Use", null);
+            if (!IsWinPlatform) return "";
+            float d = GetCounterValue("Memory", "% Committed Bytes In Use", null);
             var str = d.ToString("F") + "% (";
-            d = GetCounterValue(MemoryCounter, "Memory", "Committed Bytes", null);
+            d = GetCounterValue("Memory", "Committed Bytes", null);
             str += FormatBytes(d) + " / ";
-            d = GetCounterValue(MemoryCounter, "Memory", "Commit Limit", null);
+            d = GetCounterValue("Memory", "Commit Limit", null);
             return str + FormatBytes(d) + ") ";
         }
 
@@ -342,7 +395,7 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetUsageVirtualMemory()
         {
-            return GetCounterValue(MemoryCounter, "Memory", "% Committed Bytes In Use", null);
+            return GetCounterValue("Memory", "% Committed Bytes In Use", null);
         }
 
         /// <summary>
@@ -351,7 +404,7 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetUsedVirtualMemory()
         {
-            return GetCounterValue(MemoryCounter, "Memory", "Committed Bytes", null);
+            return GetCounterValue("Memory", "Committed Bytes", null);
         }
 
         /// <summary>
@@ -360,12 +413,8 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetTotalVirtualMemory()
         {
-            return GetCounterValue(MemoryCounter, "Memory", "Commit Limit", null);
+            return GetCounterValue("Memory", "Commit Limit", null);
         }
-
-        #endregion
-
-        #region 获取物理内存使用率详情
 
         /// <summary>
         /// 获取物理内存使用率详情描述
@@ -373,9 +422,12 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static string GetMemoryPData()
         {
+            if (!IsWinPlatform) return "";
             string s = QueryComputerSystem("totalphysicalmemory");
-            float totalphysicalmemory = Convert.ToSingle(s);
-            float d = GetCounterValue(MemoryCounter, "Memory", "Available Bytes", null);
+            if (string.IsNullOrEmpty(s)) return "";
+
+            var totalphysicalmemory = Convert.ToSingle(s);
+            var d = GetCounterValue("Memory", "Available Bytes", null);
             d = totalphysicalmemory - d;
             s = CompactFormat ? "%" : "% (" + FormatBytes(d) + " / " + FormatBytes(totalphysicalmemory) + ")";
             d /= totalphysicalmemory;
@@ -389,8 +441,11 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetTotalPhysicalMemory()
         {
-            string s = QueryComputerSystem("totalphysicalmemory");
-            return s.TryConvertTo<float>();
+            return Cache.GetOrAdd(nameof(GetTotalPhysicalMemory), () =>
+            {
+                var s = QueryComputerSystem("totalphysicalmemory");
+                return s.TryConvertTo<float>();
+            });
         }
 
         /// <summary>
@@ -399,7 +454,7 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetFreePhysicalMemory()
         {
-            return GetCounterValue(MemoryCounter, "Memory", "Available Bytes", null);
+            return GetCounterValue("Memory", "Available Bytes", null);
         }
 
         /// <summary>
@@ -411,20 +466,129 @@ namespace Masuit.Tools.Hardware
             return GetTotalPhysicalMemory() - GetFreePhysicalMemory();
         }
 
-        #endregion
+        /// <summary>
+        /// 获取进程的内存使用量，单位：MB
+        /// </summary>
+        /// <returns></returns>
+        public static float GetProcessMemory(int pid)
+        {
+            using var process = Process.GetProcessById(pid);
+            return GetProcessMemory(process);
+        }
 
-        #region 获取硬盘的读写速率
+        /// <summary>
+        /// 获取进程的内存使用量，单位：MB
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static IEnumerable<(Process process, float usage)> GetProcessMemory(string name)
+        {
+            var processes = Process.GetProcessesByName(name);
+            return GetProcessMemory(processes);
+        }
+
+        /// <summary>
+        /// 获取进程的内存使用量，单位：MB
+        /// </summary>
+        /// <param name="processes"></param>
+        /// <returns></returns>
+        public static IEnumerable<(Process process, float usage)> GetProcessMemory(this Process[] processes)
+        {
+            return processes.Select(p => (p, GetProcessMemory(p)));
+        }
+
+        /// <summary>
+        /// 获取进程的内存使用量，单位：MB
+        /// </summary>
+        /// <param name="process"></param>
+        /// <returns></returns>
+        public static float GetProcessMemory(this Process process)
+        {
+            if (!IsWinPlatform) return 0;
+            string instance = GetInstanceName(process);
+            if (instance != null)
+            {
+                var ramCounter = Counters.GetOrAdd("Working Set" + instance, () => new PerformanceCounter("Process", "Working Set", instance));
+                var mb = ramCounter.NextValue() / 1024 / 1024;
+                return mb;
+            }
+            return 0;
+        }
+
+        public static long CurrentProcessMemory
+        {
+            get
+            {
+                using var process = Process.GetCurrentProcess();
+                return (long)GetCounterValue("Process", "Working Set - Private", process.ProcessName);
+            }
+        }
+
+        #endregion 内存相关
+
+        #region 硬盘相关
 
         /// <summary>
         /// 获取硬盘的读写速率
         /// </summary>
         /// <param name="dd">读或写</param>
         /// <returns></returns>
-        public static float GetDiskData(DiskData dd) => dd == DiskData.Read ? GetCounterValue(DiskReadCounter, "PhysicalDisk", "Disk Read Bytes/sec", "_Total") : dd == DiskData.Write ? GetCounterValue(DiskWriteCounter, "PhysicalDisk", "Disk Write Bytes/sec", "_Total") : dd == DiskData.ReadAndWrite ? GetCounterValue(DiskReadCounter, "PhysicalDisk", "Disk Read Bytes/sec", "_Total") + GetCounterValue(DiskWriteCounter, "PhysicalDisk", "Disk Write Bytes/sec", "_Total") : 0;
+        public static float GetDiskData(DiskData dd)
+        {
+            return dd switch
+            {
+                DiskData.Read => GetCounterValue("PhysicalDisk", "Disk Read Bytes/sec", "_Total"),
+                DiskData.Write => GetCounterValue("PhysicalDisk", "Disk Write Bytes/sec", "_Total"),
+                DiskData.ReadAndWrite => GetCounterValue("PhysicalDisk", "Disk Read Bytes/sec", "_Total") + GetCounterValue("PhysicalDisk", "Disk Write Bytes/sec", "_Total"),
+                _ => 0
+            };
+        }
 
-        #endregion
+        private static List<DiskInfo> _diskInfos = [];
 
-        #region 获取网络的传输速率
+        /// <summary>
+        /// 获取磁盘可用空间
+        /// </summary>
+        /// <returns></returns>
+        public static List<DiskInfo> GetDiskInfo()
+        {
+            try
+            {
+                if (!IsWinPlatform || _diskInfos.Count > 0)
+                {
+                    return _diskInfos;
+                }
+
+                using var mc = new ManagementClass("Win32_DiskDrive");
+                using var moc = mc.GetInstances();
+                var list = new List<DiskInfo>();
+                foreach (var mo in moc)
+                {
+                    using (mo)
+                    {
+                        list.Add(new DiskInfo()
+                        {
+                            Index = mo["Index"].ChangeTypeTo<int>(),
+                            Total = mo["Size"].ChangeTypeTo<long>(),
+                            Model = mo["Model"].ToString(),
+                            MediaType = mo["MediaType"].ToString(),
+                            SerialNumber = mo["SerialNumber"].ToString(),
+                        });
+                    }
+                }
+
+                _diskInfos = list.OrderBy(x => x.Index).ToList();
+                return _diskInfos;
+            }
+            catch (Exception)
+            {
+                return [];
+            }
+        }
+
+        #endregion 硬盘相关
+
+        #region 网络相关
 
         /// <summary>
         /// 获取网络的传输速率
@@ -433,27 +597,28 @@ namespace Masuit.Tools.Hardware
         /// <returns></returns>
         public static float GetNetData(NetData nd)
         {
-            if (InstanceNames.Length == 0)
-            {
-                return 0;
-            }
+            if (!IsWinPlatform) return 0;
+            if (InstanceNames is { Length: 0 }) return 0;
 
             float d = 0;
             for (int i = 0; i < InstanceNames.Length; i++)
             {
-                float receied = GetCounterValue(NetRecvCounters[i], "Network Interface", "Bytes Received/sec", InstanceNames[i]);
-                float send = GetCounterValue(NetSentCounters[i], "Network Interface", "Bytes Sent/sec", InstanceNames[i]);
+                float receied = GetCounterValue("Network Interface", "Bytes Received/sec", InstanceNames[i]);
+                float send = GetCounterValue("Network Interface", "Bytes Sent/sec", InstanceNames[i]);
                 switch (nd)
                 {
                     case NetData.Received:
                         d += receied;
                         break;
+
                     case NetData.Sent:
                         d += send;
                         break;
+
                     case NetData.ReceivedAndSent:
                         d += receied + send;
                         break;
+
                     default:
                         d += 0;
                         break;
@@ -463,59 +628,311 @@ namespace Masuit.Tools.Hardware
             return d;
         }
 
-        #endregion
-
         /// <summary>
         /// 获取网卡硬件地址
         /// </summary>
         /// <returns></returns>
-        public static IList<string> GetMacAddress()
+        public static IEnumerable<PhysicalAddress> GetMacAddress()
         {
-            //获取网卡硬件地址       
+            return NetworkInterface.GetAllNetworkInterfaces().Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback && c.OperationalStatus == OperationalStatus.Up && c.GetIPProperties().UnicastAddresses.Any(temp => temp.Address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)).Select(c => c.GetPhysicalAddress());
+        }
+
+        /// <summary>
+        /// 获取IP地址WMI
+        /// </summary>
+        /// <returns></returns>
+        public static string GetIPAddressWMI()
+        {
             try
             {
-                IList<string> list = new List<string>();
-                using var mc = new ManagementClass("Win32_NetworkAdapterConfiguration");
-                using var moc = mc.GetInstances();
+                if (!IsWinPlatform) return "";
+
+                return Cache.GetOrAdd(nameof(GetIPAddressWMI), () =>
+                {
+                    using var mc = new ManagementClass("Win32_NetworkAdapterConfiguration");
+                    using var moc = mc.GetInstances();
+                    foreach (var mo in moc)
+                    {
+                        if ((bool)mo["IPEnabled"])
+                        {
+                            return ((string[])mo["IpAddress"])[0];
+                        }
+                    }
+
+                    return "";
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// 获取当前使用的IP
+        /// </summary>
+        /// <returns></returns>
+        public static IPAddress GetLocalUsedIP()
+        {
+            return GetLocalUsedIP(AddressFamily.InterNetwork);
+        }
+
+        /// <summary>
+        /// 获取当前使用的IP
+        /// </summary>
+        /// <returns></returns>
+        public static IPAddress GetLocalUsedIP(AddressFamily family)
+        {
+            return NetworkInterface.GetAllNetworkInterfaces().Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback && c.OperationalStatus == OperationalStatus.Up).OrderByDescending(c => c.Speed).Select(t => t.GetIPProperties()).Where(p => p.DhcpServerAddresses.Count > 0).SelectMany(p => p.UnicastAddresses).Select(p => p.Address).FirstOrDefault(p => !(p.IsIPv6Teredo || p.IsIPv6LinkLocal || p.IsIPv6Multicast || p.IsIPv6SiteLocal) && p.AddressFamily == family);
+        }
+
+        /// <summary>
+        /// 获取本机所有的ip地址
+        /// </summary>
+        /// <returns></returns>
+        public static List<UnicastIPAddressInformation> GetLocalIPs()
+        {
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces().Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback && c.OperationalStatus == OperationalStatus.Up).OrderByDescending(c => c.Speed); //所有网卡信息
+            return interfaces.SelectMany(n => n.GetIPProperties().UnicastAddresses).ToList();
+        }
+
+        /// <summary>
+        /// 获取网卡地址
+        /// </summary>
+        /// <returns></returns>
+        public static string GetNetworkCardAddress()
+        {
+            try
+            {
+                if (!IsWinPlatform) return "";
+
+                return Cache.GetOrAdd(nameof(GetNetworkCardAddress), () =>
+                {
+                    using var mos = new ManagementObjectSearcher("select * from Win32_NetworkAdapter where ((MACAddress Is Not NULL) and (Manufacturer <> 'Microsoft'))");
+                    using var moc = mos.Get();
+                    foreach (var mo in moc)
+                    {
+                        return mo["MACAddress"].ToString().Trim();
+                    }
+
+                    return "";
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            return "";
+        }
+
+        #endregion 网络相关
+
+        #region 系统相关
+
+        /// <summary>
+        /// 获取计算机开机时间
+        /// </summary>
+        /// <returns>datetime</returns>
+        public static DateTime BootTime()
+        {
+            if (!IsWinPlatform) return default;
+
+            var query = new SelectQuery("SELECT LastBootUpTime FROM Win32_OperatingSystem WHERE Primary='true'");
+            using var searcher = new ManagementObjectSearcher(query);
+            using var moc = searcher.Get();
+            foreach (var mo in moc)
+            {
+                using (mo)
+                {
+                    return ManagementDateTimeConverter.ToDateTime(mo["LastBootUpTime"].ToString());
+                }
+            }
+
+            return DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount & int.MaxValue);
+        }
+
+        /// <summary>
+        /// 查询计算机系统信息
+        /// </summary>
+        /// <param name="type">类型名</param>
+        /// <returns></returns>
+        public static string QueryComputerSystem(string type)
+        {
+            try
+            {
+                if (!IsWinPlatform) return string.Empty;
+
+                var mos = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem");
+                using var moc = mos.Get();
                 foreach (var mo in moc)
                 {
                     using (mo)
                     {
-                        if ((bool)mo["IPEnabled"])
-                        {
-                            list.Add(mo["MacAddress"].ToString());
-                        }
+                        return mo[type].ToString();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return "未能获取到当前计算机系统信息，可能是当前程序无管理员权限，如果是web应用程序，请将应用程序池的高级设置中的进程模型下的标识设置为：LocalSystem；如果是普通桌面应用程序，请提升管理员权限后再操作。异常信息：" + e.Message;
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// 查找所有应用程序标题
+        /// </summary>
+        /// <param name="handle">应用程序标题范型</param>
+        /// <returns>所有应用程序集合</returns>
+        public static List<string> FindAllApps(int handle)
+        {
+            if (!IsWinPlatform) return new List<string>(0);
+
+            var apps = new List<string>();
+            int hwCurr = GetWindow(handle, GwHwndfirst);
+            while (hwCurr > 0)
+            {
+                int IsTask = WsVisible | WsBorder;
+                int lngStyle = GetWindowLongA(hwCurr, GwlStyle);
+                bool taskWindow = (lngStyle & IsTask) == IsTask;
+                if (taskWindow)
+                {
+                    int length = GetWindowTextLength(new IntPtr(hwCurr));
+                    var sb = new StringBuilder(2 * length + 1);
+                    GetWindowText(hwCurr, sb, sb.Capacity);
+                    string strTitle = sb.ToString();
+                    if (!string.IsNullOrEmpty(strTitle))
+                    {
+                        apps.Add(strTitle);
                     }
                 }
 
-                return list;
+                hwCurr = GetWindow(hwCurr, GwHwndnext);
             }
-            catch (Exception)
+
+            return apps;
+        }
+
+        /// <summary>
+        /// 操作系统类型
+        /// </summary>
+        /// <returns></returns>
+        public static string GetSystemType()
+        {
+            try
             {
-                return new List<string>();
+                return Cache.GetOrAdd(nameof(GetSystemType), () =>
+                {
+                    if (!IsWinPlatform)
+                    {
+                        return Environment.OSVersion.Platform.ToString();
+                    }
+
+                    using var mc = new ManagementClass("Win32_ComputerSystem");
+                    using var moc = mc.GetInstances();
+                    foreach (var mo in moc)
+                    {
+                        return mo["SystemType"].ToString().Trim();
+                    }
+
+                    return "";
+                });
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            return "";
         }
 
-        /// <summary>  
-        /// 获取当前使用的IP  
-        /// </summary>  
-        /// <returns></returns>  
-        public static IPAddress GetLocalUsedIP()
+        #endregion 系统相关
+
+        #region 主板相关
+
+        /// <summary>
+        /// 获取主板序列号
+        /// </summary>
+        /// <returns></returns>
+        public static string GetBiosSerialNumber()
         {
-            return NetworkInterface.GetAllNetworkInterfaces().OrderByDescending(c => c.Speed).Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback && c.OperationalStatus == OperationalStatus.Up).SelectMany(n => n.GetIPProperties().UnicastAddresses.Select(u => u.Address)).FirstOrDefault();
+            try
+            {
+                if (!IsWinPlatform) return "";
+
+                return Cache.GetOrAdd(nameof(GetBiosSerialNumber), () =>
+                {
+                    using var searcher = new ManagementObjectSearcher("select * from Win32_BIOS");
+                    using var mos = searcher.Get();
+                    foreach (var mo in mos)
+                    {
+                        return mo["SerialNumber"].ToString().Trim();
+                    }
+
+                    return "";
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            return "";
         }
 
-        /// <summary>  
-        /// 获取本机所有的ip地址
-        /// </summary>  
-        /// <returns></returns>  
-        public static List<UnicastIPAddressInformation> GetLocalIPs()
+        /// <summary>
+        /// 主板编号
+        /// </summary>
+        /// <returns></returns>
+        public static BiosInfo GetBiosInfo()
         {
-            var interfaces = NetworkInterface.GetAllNetworkInterfaces().OrderByDescending(c => c.Speed).Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback && c.OperationalStatus == OperationalStatus.Up); //所有网卡信息
-            return interfaces.SelectMany(n => n.GetIPProperties().UnicastAddresses).ToList();
+            if (!IsWinPlatform) return new BiosInfo();
+
+            return Cache.GetOrAdd(nameof(GetBiosInfo), () =>
+            {
+                using var searcher = new ManagementObjectSearcher("select * from Win32_BaseBoard");
+                using var mos = searcher.Get();
+                using var reg = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                using var guidKey = reg.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
+                using var uuidKey = reg.OpenSubKey(@"SYSTEM\HardwareConfig");
+                string guid = null;
+                string uuid = null;
+                string model = null;
+                if (guidKey != null) guid = guidKey.GetValue("MachineGuid") + "";
+                if (uuidKey != null) uuid = (uuidKey.GetValue("LastConfig") + "").Trim('{', '}').ToUpper();
+                var biosKey = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\BIOS");
+                biosKey ??= Registry.LocalMachine.OpenSubKey(@"SYSTEM\HardwareConfig\Current");
+                if (biosKey != null)
+                {
+                    model = (biosKey.GetValue("SystemProductName") + "").Replace("System Product Name", null);
+                    if (model.IsNullOrEmpty()) model = biosKey.GetValue("BaseBoardProduct") + "";
+                    biosKey.Dispose();
+                }
+
+                foreach (var mo in mos)
+                {
+                    return new BiosInfo
+                    {
+                        Manufacturer = mo["Manufacturer"].ToString(),
+                        ID = mo["SerialNumber"].ToString(),
+                        Model = model,
+                        SerialNumber = GetBiosSerialNumber(),
+                        Guid = guid,
+                        UUID = uuid
+                    };
+                }
+
+                return new BiosInfo();
+            });
         }
 
-        #region 将速度值格式化成字节单位
+        #endregion 主板相关
+
+        #region 公共函数
 
         /// <summary>
         /// 将速度值格式化成字节单位
@@ -535,122 +952,19 @@ namespace Masuit.Tools.Hardware
             return s + (Unit)unit;
         }
 
-        #endregion
-
-        #region 查询计算机系统信息
-
-        /// <summary>
-        /// 获取计算机开机时间
-        /// </summary>
-        /// <returns>datetime</returns>
-        public static DateTime BootTime()
+        private static float GetCounterValue(string categoryName, string counterName, string instanceName)
         {
-            var query = new SelectQuery("SELECT LastBootUpTime FROM Win32_OperatingSystem WHERE Primary='true'");
-            using var searcher = new ManagementObjectSearcher(query);
-            using var moc = searcher.Get();
-            foreach (var mo in moc)
-            {
-                using (mo)
-                {
-                    return ManagementDateTimeConverter.ToDateTime(mo.Properties["LastBootUpTime"].Value.ToString());
-                }
-            }
-
-            return DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount & int.MaxValue);
+            if (!IsWinPlatform) return 0;
+            var counter = Counters.GetOrAdd(categoryName + ":" + counterName + ":" + instanceName, () => new PerformanceCounter(categoryName, counterName, instanceName));
+            return counter.NextValue();
         }
 
-        /// <summary>
-        /// 查询计算机系统信息
-        /// </summary>
-        /// <param name="type">类型名</param>
-        /// <returns></returns>
-        public static string QueryComputerSystem(string type)
-        {
-            try
-            {
-                var mos = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem");
-                using var moc = mos.Get();
-                foreach (var mo in moc)
-                {
-                    using (mo)
-                    {
-                        return mo[type].ToString();
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                return "未能获取到当前计算机系统信息，可能是当前程序无管理员权限，如果是web应用程序，请将应用程序池的高级设置中的进程模型下的标识设置为：LocalSystem；如果是普通桌面应用程序，请提升管理员权限后再操作。异常信息：" + e.Message;
-            }
-            return string.Empty;
-        }
+        #endregion 公共函数
 
-        #endregion
-
-        #region 获取环境变量
-
-        /// <summary>
-        /// 获取环境变量
-        /// </summary>
-        /// <param name="type">环境变量名</param>
-        /// <returns></returns>
-        public static string QueryEnvironment(string type) => Environment.ExpandEnvironmentVariables(type);
-
-        #endregion
-
-        #region 获取磁盘空间
-
-        private static readonly List<DiskInfo> DiskInfos = new();
-
-        /// <summary>
-        /// 获取磁盘可用空间
-        /// </summary>
-        /// <returns></returns>
-        public static List<DiskInfo> GetDiskInfo()
-        {
-            try
-            {
-                if (DiskInfos.Count > 0)
-                {
-                    return DiskInfos;
-                }
-
-                using var mc = new ManagementClass("Win32_DiskDrive");
-                using var moc = mc.GetInstances();
-                foreach (var mo in moc)
-                {
-                    using (mo)
-                    {
-                        DiskInfos.Add(new DiskInfo()
-                        {
-                            Total = float.Parse(mo["Size"].ToString()),
-                            Model = mo["Model"].ToString(),
-                            SerialNumber = mo["SerialNumber"].ToString(),
-                        });
-                    }
-                }
-
-                return DiskInfos;
-            }
-            catch (Exception)
-            {
-                return new List<DiskInfo>();
-            }
-        }
-
-        #endregion
-
-        private static float GetCounterValue(PerformanceCounter pc, string categoryName, string counterName, string instanceName)
-        {
-            pc.CategoryName = categoryName;
-            pc.CounterName = counterName;
-            pc.InstanceName = instanceName;
-            return pc.NextValue();
-        }
-
-        #region Win32API声明 
+        #region Win32API声明
 
 #pragma warning disable 1591
+
         [DllImport("User32")]
         public static extern int GetWindow(int hWnd, int wCmd);
 
@@ -662,8 +976,60 @@ namespace Masuit.Tools.Hardware
 
         [DllImport("user32", CharSet = CharSet.Auto)]
         public static extern int GetWindowTextLength(IntPtr hWnd);
+
 #pragma warning restore 1591
 
-        #endregion
+        #endregion Win32API声明
+
+        #region AIDA64
+
+        /// <summary>
+        /// 获取AIDA64传感器值，需要AIDA64开启共享内存
+        /// </summary>
+        /// <returns></returns>
+        public static IEnumerable<SensorValue> GetAida64Values()
+        {
+            using var mmf = MemoryMappedFile.OpenExisting("AIDA64_SensorValues");
+            using var stream = mmf.CreateViewStream();
+            using BinaryReader binReader = new BinaryReader(stream);
+            var sb = new StringBuilder((int)stream.Length);
+            sb.Append("<root>");
+            var c = binReader.ReadChar();
+            while (c != '\0')
+            {
+                sb.Append(c);
+                c = binReader.ReadChar();
+            }
+            sb.Append("</root>");
+            var sharedMemString = sb.ToString();
+            var document = XDocument.Parse(sharedMemString);
+            foreach (var element in document.Root.Elements())
+            {
+                var v = new SensorValue
+                {
+                    Type = SensorTypeStrings.GetTypeFromStringCode(element.Name.LocalName)
+                };
+
+                foreach (var childElement in element.Elements())
+                {
+                    if (childElement.Name.LocalName == "id")
+                    {
+                        v.Identifier = childElement.Value;
+                    }
+                    else if (childElement.Name.LocalName == "label")
+                    {
+                        v.Name = childElement.Value;
+                    }
+                    else if (childElement.Name.LocalName == "value")
+                    {
+                        v.Value = childElement.Value;
+                    }
+                }
+
+                yield return v;
+            }
+        }
+
+        #endregion AIDA64
     }
 }

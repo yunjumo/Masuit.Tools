@@ -6,10 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.WebEncoders;
-using Microsoft.OpenApi.Models;
 using System;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using Microsoft.OpenApi;
 
 namespace Masuit.Tools.AspNetCore.ResumeFileResults.WebTest
 {
@@ -42,7 +42,7 @@ namespace Masuit.Tools.AspNetCore.ResumeFileResults.WebTest
             {
                 options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All);
             }); //解决razor视图中中文被编码的问题
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Latest).AddControllersAsServices();
+            services.AddMvc().AddControllersAsServices();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
